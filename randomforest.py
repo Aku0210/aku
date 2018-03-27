@@ -6,14 +6,12 @@
 %matplotlib inline
 print(__doc__)
 
-# Importing all the required libraries
-import csv
+# Import all required libraries
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn import svm
-from sklearn import metrics
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, auc
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import ShuffleSplit
@@ -22,7 +20,19 @@ from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import label_binarize
 import pandas as pd
 
-# Import some data to play with
+# defining Random Forest Classifier
+def random_forest_classifier(features, target):
+    """
+    To train the random forest classifier with features and target data
+    :param features:
+    :param target:
+    :return: trained random forest classifier
+    """
+    clf = RandomForestClassifier()
+    clf.fit(features, target)
+    return clf
+
+# import some data to play with
 df = pd.read_csv("day_1.csv")
 
 # Import the columns to be used
@@ -36,32 +46,31 @@ y1 = label_binarize(y, classes=[0,1])
 n_classes = y1.shape[1]
 
 # Split the data into a training set and a test set
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+X_train1, X_test1, y_train1, y_test1 = train_test_split(X, y, random_state=0)
 
-# Run classifier, using a model that is too regularized (C too low) to see
-# the impact on the results
-classifier = svm.SVC(kernel='rbf', gamma=0.003, C=2)
-y_pred = classifier.fit(X_train, y_train).predict(X_test)\
-y_score = classifier.fit(X_train, y_train).decision_function(X_test)
-
-# Cross-validation using 10-folds
-cv = ShuffleSplit(n_splits=10,test_size=0.3,random_state=0)
-cvs = cross_val_score(classifier, X, y, cv=cv, scoring='f1_macro')
+# Run the classifier on training data
+trained_model = random_forest_classifier(X_train1, y_train1)
+y_pred1 = trained_model.fit(X_train1, y_train1).predict(X_test1)
+y_score = trained_model.fit(X_train1, y_train1).predict_proba(X_test1)
 
 # Code to write the output to csv file
-#outfile = open('pred.csv', 'w')
+#outfile = open('pred1.csv', 'w')
 #out = csv.writer(outfile)
-#out.writerows(map(lambda x: [x], y_pred))
+#out.writerows(map(lambda x: [x], y_pred1))
 #outfile.close()
 
-# Using different metrics such as RMSE, correlation coefficient and accuracy
-MSE = metrics.mean_squared_error(y_test, y_pred)
+# Cross-validation using 10-folds 
+cv = ShuffleSplit(n_splits=10, test_size=0.3, random_state=0)
+cvs1 = cross_val_score(trained_model, X, y, cv=cv, scoring='f1_macro')
+
+# Using different metrics such as Accuracy, Correlation coefficient and RMSE
+MSE = metrics.mean_squared_error(y_test1, y_pred1)
 RMSE = np.sqrt(MSE)
-Cor_coeff = np.corrcoef(y_test, y_pred)
-Accuracy = metrics.accuracy_score(y_test, y_pred)
-train_score = classifier.score(X_train, y_train)
-classifier.fit(X_test, y_test)
-test_score = classifier.score(X_test, y_test)
+Cor_coeff = np.corrcoef(y_test1, y_pred1)
+Accuracy = metrics.accuracy_score(y_test1, y_pred1)
+train_score = trained_model.score(X_train1, y_train1)
+trained_model.fit(X_test1, y_test1)
+test_score = trained_model.score(X_test1, y_test1)
 
 # Printing all the metrics
 print("MSE: ",MSE)
@@ -70,9 +79,9 @@ print("Cor_coeff: ",Cor_coeff)
 print("Accuracy: ",Accuracy)
 print("train_score: ",train_score)
 print("test_score: ",test_score)
-print("Cross validation score:", cvs)
+print("CVS:",cvs1)
 
-# Code to plot confusion matrix for the above data
+# Code to plot confusion matrix for the above test data
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
                           title='Confusion matrix',
@@ -88,7 +97,7 @@ def plot_confusion_matrix(cm, classes,
         print('Confusion matrix, without normalization')
 
     print(cm)
-
+    #plt.figure(figsize=(8,8))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
@@ -107,8 +116,7 @@ def plot_confusion_matrix(cm, classes,
     plt.ylabel('Actual label')
     plt.xlabel('Predicted label')
 
-# Compute confusion matrix
-cnf_matrix = confusion_matrix(y_test, y_pred)
+cnf_matrix = confusion_matrix(y_test, y_pred1)
 np.set_printoptions(precision=2)
 
 # Plot non-normalized confusion matrix
@@ -121,30 +129,5 @@ plt.figure()
 plot_confusion_matrix(cnf_matrix, classes=class_names, normalize=True,
                       title='Normalized confusion matrix')
 
-# Code to plot ROC curve
-fpr = dict()
-tpr = dict()
-roc_auc = dict()
 
-for i in range(n_classes):
-    fpr[i], tpr[i], _ = roc_curve(y_test, y_score)
-    roc_auc[i] = auc(fpr[i], tpr[i])
-
-# Compute micro-average ROC curve and ROC area
-fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
-roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-plt.figure(figsize=(12,8))
-lw = 2
-plt.plot(fpr["micro"], tpr["micro"], color='red',
-         lw=lw, label='ROC curve (area = %0.2f)' % roc_auc["micro"], linewidth='4')
-plt.plot([0, 1], [0, 1], color='navy', lw=lw, label='Ideal Curve',linestyle='--',linewidth='4')
-
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Receiver operating characteristic Curve')
-plt.legend(loc="lower right")
-plt.show()
 plt.show()
